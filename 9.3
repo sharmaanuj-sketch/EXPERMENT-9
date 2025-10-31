@@ -1,0 +1,188 @@
+# fullstack-aws-app/
+# ├── client/ (React Frontend)
+# ├── server/ (Node Backend)
+# ├── docker-compose.yml
+# ├── Dockerfile.client
+# ├── Dockerfile.server
+# ├── .dockerignore
+# └── README.md
+
+# =================== client/package.json ===================
+{
+  "name": "aws-react-client",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "axios": "^1.6.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false",
+    "eject": "react-scripts eject"
+  }
+}
+
+# =================== client/src/App.js ===================
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+function App() {
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    axios.get("/api").then(res => setMessage(res.data.message));
+  }, []);
+
+  return (
+    <div style={{ textAlign: "center", marginTop: "100px" }}>
+      <h1>🚀 Full Stack App Deployed on AWS with Load Balancer</h1>
+      <p>Backend says: {message}</p>
+    </div>
+  );
+}
+
+export default App;
+
+# =================== server/package.json ===================
+{
+  "name": "aws-node-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
+
+# =================== server/index.js ===================
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://your-mongodb-uri";
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log(err));
+
+app.get("/api", (req, res) => {
+  res.json({ message: "Hello from Node.js backend via Load Balancer!" });
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+# =================== Dockerfile.client ===================
+FROM node:18-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+# =================== Dockerfile.server ===================
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["npm", "start"]
+
+# =================== docker-compose.yml ===================
+version: "3.9"
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.server
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.client
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+
+# =================== .dockerignore ===================
+node_modules
+build
+.git
+.gitignore
+Dockerfile*
+docker-compose.yml
+
+# =================== README.md ===================
+# Full Stack AWS Deployment with Load Balancer
+
+## Overview
+- React frontend served by Nginx (port 3000)
+- Node.js backend using Express + MongoDB (port 5000)
+- Dockerized with docker-compose
+- AWS EC2 + Elastic Load Balancer setup
+
+## Steps to Deploy
+
+### 1. Build Docker images locally
+docker-compose build
+
+### 2. Run locally
+docker-compose up
+
+### 3. Push to Docker Hub
+docker tag fullstack-aws-app-client your_dockerhub_user/react-client
+docker tag fullstack-aws-app-server your_dockerhub_user/node-server
+docker push your_dockerhub_user/react-client
+docker push your_dockerhub_user/node-server
+
+### 4. AWS Setup
+- Launch 2 EC2 instances (Amazon Linux or Ubuntu)
+- Install Docker + Docker Compose
+- Pull images from Docker Hub on each instance
+- Run containers: `docker-compose up -d`
+- Add both EC2 instances under **Elastic Load Balancer**
+- Configure target group for ports:
+  - Frontend: 3000
+  - Backend: 5000
+- Access app via the Load Balancer DNS URL
+
+### 5. Verify
+Visit your ELB DNS link in browser.
+It will display:  
+"🚀 Full Stack App Deployed on AWS with Load Balancer"
+
+# =================== Run Commands ===================
+# mkdir fullstack-aws-app && cd fullstack-aws-app
+# (Paste this block, split files as labeled)
+# docker-compose build
+# docker-compose up
