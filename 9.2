@@ -1,0 +1,140 @@
+# react-ci-cd-app/
+# ├── .github/workflows/deploy.yml
+# ├── package.json
+# ├── src/App.js
+# ├── Dockerfile
+# ├── .dockerignore
+# └── README.md
+
+# =================== package.json ===================
+{
+  "name": "react-ci-cd-app",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false",
+    "eject": "react-scripts eject"
+  }
+}
+
+# =================== src/App.js ===================
+import React from 'react';
+function App() {
+  return (
+    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+      <h1>🚀 React CI/CD Pipeline with GitHub Actions</h1>
+      <p>Continuous Integration and Deployment in action!</p>
+    </div>
+  );
+}
+export default App;
+
+# =================== Dockerfile ===================
+FROM node:18-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+# =================== .dockerignore ===================
+node_modules
+build
+.git
+.github
+Dockerfile
+.dockerignore
+
+# =================== .github/workflows/deploy.yml ===================
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload production-ready files
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build
+          path: build
+
+      - name: Deploy using GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+
+# =================== README.md ===================
+# React CI/CD with GitHub Actions
+
+## Setup
+1. Create repository and push your React app.
+2. Add this folder structure to your repo.
+3. Ensure you’re using the **main** branch.
+
+## Run Locally
+npm install  
+npm start
+
+## CI/CD Workflow
+- On every push to main:
+  - Installs dependencies
+  - Runs tests
+  - Builds production files
+  - Deploys to GitHub Pages
+
+## Deployment
+Enable GitHub Pages:
+Settings → Pages → Deploy from GitHub Actions.
+
+# =================== Run Commands ===================
+# mkdir react-ci-cd-app && cd react-ci-cd-app
+# (Paste this block and split into files)
+# git init && git add . && git commit -m "Initial CI/CD setup"
+# git branch -M main
+# git remote add origin https://github.com/<your-username>/<your-repo>.git
+# git push -u origin main
